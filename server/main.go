@@ -133,7 +133,7 @@ func policiesHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 func adminHandler(w http.ResponseWriter, r *http.Request) {
-	ts := adminTmp.Load().(*template.Template)
+	ts := adminAdminTmp.Load().(*template.Template)
 	/*
 		ts := (*tmps.Lock())["admin"]
 		tmps.Unlock()
