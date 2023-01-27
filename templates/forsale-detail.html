@@ -1,0 +1,20 @@
+{|define "title"|}
+OnlyFrags - Down and Dirty Details
+{|end|}
+
+{|define "js"|}
+<script src="https://unpkg.com/vue@3"></script>
+<script src="/static/js/forsale-detail.js" defer></script>
+{|end|}
+
+{|define "body"|}
+<div id="app" width="100%">
+  <div style="text-align: center">
+    <h1>{|.Frag.Name|}</h1>
+    <h2>${|.Frag.Price|}</h2>
+    <button @click="fragOut()">Buy Now</button>
+    <br><br>
+    <img src="{|.Frag.FragImg|}" max-width="80%" style="margin-left: auto; margin-right: auto">
+  </div>
+</div>
+{|end|}
