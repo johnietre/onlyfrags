@@ -1,0 +1,252 @@
+package main
+
+import (
+	"database/sql"
+	"flag"
+	"fmt"
+	"html/template"
+	"log"
+	"net/http"
+	"path/filepath"
+	"runtime"
+	"sync/atomic"
+	"time"
+
+	_ "github.com/mattn/go-sqlite3"
+)
+
+var (
+	addr string
+
+	baseTmpPath, homeTmpPath, aboutTmpPath, forSaleTmpPath string
+	policiesTmpPath, adminBaseTmpPath, adminAdminTmpPath   string
+
+	homeTmp, aboutTmp, forSaleTmp, policiesTmp, adminAdminTmp atomic.Value
+
+	tmps = NewSyncMap[string, *template.Template]()
+	//tmps = NewRWMutex(make(map[string]*template.Template))
+
+	staticPath, imagesPath, dbPath string
+
+	dbMtx *RWMutex[*sql.DB]
+)
+
+func init() {
+	log.SetFlags(0)
+
+	_, thisFile, _, ok := runtime.Caller(0)
+	if !ok {
+		log.Fatal("error getting this file")
+	}
+	parentDir := filepath.Dir(filepath.Dir(thisFile))
+
+	tmpsDir := filepath.Join(parentDir, "templates")
+	baseTmpPath = filepath.Join(tmpsDir, "base.html")
+	homeTmpPath = filepath.Join(tmpsDir, "home.html")
+	aboutTmpPath = filepath.Join(tmpsDir, "about.html")
+	forSaleTmpPath = filepath.Join(tmpsDir, "forsale.html")
+	policiesTmpPath = filepath.Join(tmpsDir, "policies.html")
+	adminDir := filepath.Join(tmpsDir, "admin")
+	adminBaseTmpPath = filepath.Join(adminDir, "admin.html")
+	adminAdminTmpPath = filepath.Join(adminDir, "admin.html")
+
+	staticPath = filepath.Join(parentDir, "static")
+	imagesPath = filepath.Join(staticPath, "images")
+
+	dbPath = filepath.Join(parentDir, "db")
+}
+
+func main() {
+	flag.StringVar(&addr, "addr", "127.0.0.1:8000", "Address to run server on")
+	flag.Parse()
+
+	db, err := sql.Open("sqlite3", dbPath)
+	if err != nil {
+		log.Fatalln("error opening database:", err)
+	}
+	dbMtx = NewRWMutex(db)
+
+	if err := parseAllTmps(); err != nil {
+		log.Fatalln("error parsing templates", err)
+	}
+
+	http.HandleFunc("/", handler)
+	http.HandleFunc("/home", homeHandler)
+	http.HandleFunc("/about", aboutHandler)
+	http.HandleFunc("/forsale", forSaleHandler)
+	http.HandleFunc("/policies", policiesHandler)
+	http.HandleFunc("/admin", adminHandler)
+	http.HandleFunc("/admin/parse", parseHandler)
+	http.Handle(
+		"/static/",
+		http.StripPrefix("/static", http.FileServer(http.Dir(staticPath))),
+	)
+	http.Handle(
+		"/static/images/",
+		http.StripPrefix("/static/images", http.HandlerFunc(imagesHandler)),
+	)
+	http.Handle(
+		"/api/",
+		http.StripPrefix("/api", makeApiHandler()),
+	)
+	fmt.Println("Starting server on", addr)
+	log.Fatal(http.ListenAndServe(addr, nil))
+}
+
+func handler(w http.ResponseWriter, r *http.Request) {
+	path := r.URL.Path
+	if path == "" || path == "/" {
+		http.Redirect(
+			w, r, fmt.Sprintf("http://%s/home", addr), http.StatusFound,
+		)
+		return
+	}
+	http.NotFound(w, r)
+}
+
+func homeHandler(w http.ResponseWriter, r *http.Request) {
+	ts := homeTmp.Load().(*template.Template)
+	if err := ts.Execute(w, nil); err != nil {
+		log.Println("error executing home template:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func aboutHandler(w http.ResponseWriter, r *http.Request) {
+	ts := aboutTmp.Load().(*template.Template)
+	if err := ts.Execute(w, nil); err != nil {
+		log.Println("error executing about template:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func forSaleHandler(w http.ResponseWriter, r *http.Request) {
+	ts := forSaleTmp.Load().(*template.Template)
+	if err := ts.Execute(w, nil); err != nil {
+		log.Println("error executing forSale template:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func policiesHandler(w http.ResponseWriter, r *http.Request) {
+	ts := policiesTmp.Load().(*template.Template)
+	if err := ts.Execute(w, nil); err != nil {
+		log.Println("error executing policies template:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func adminHandler(w http.ResponseWriter, r *http.Request) {
+	ts := adminAdminTmp.Load().(*template.Template)
+	/*
+		ts := (*tmps.Lock())["admin"]
+		tmps.Unlock()
+	*/
+	if err := ts.Execute(w, nil); err != nil {
+		log.Println("error executing admin template:", err)
+		http.Error(w, "Internal Server Error", http.StatusInternalServerError)
+	}
+}
+
+func imagesHandler(w http.ResponseWriter, r *http.Request) {
+	//
+}
+
+func parseHandler(w http.ResponseWriter, r *http.Request) {
+	if err := parseAllTmps(); err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	fmt.Fprintln(w, "Parsed at:", time.Now().Format(time.RFC3339))
+}
+
+func parseAllTmps() error {
+	err := parseHomeTmp()
+	if e := parseAboutTmp(); err == nil {
+		err = e
+	}
+	if e := parseForSaleTmp(); err == nil {
+		err = e
+	}
+	if e := parsePoliciesTmp(); err == nil {
+		err = e
+	}
+	if e := parseAdminTmp(); err == nil {
+		err = e
+	}
+	return err
+}
+
+func parseHomeTmp() error {
+	ts, err := template.New(
+		"base.html",
+	).Delims("{|", "|}").ParseFiles(baseTmpPath, homeTmpPath)
+	if err != nil {
+		return err
+	}
+	homeTmp.Store(ts)
+	tmps.Store("home", ts)
+	return nil
+}
+
+func parseAboutTmp() error {
+	ts, err := template.New(
+		"base.html",
+	).Delims("{|", "|}").ParseFiles(baseTmpPath, aboutTmpPath)
+	if err != nil {
+		return err
+	}
+	aboutTmp.Store(ts)
+	tmps.Store("about", ts)
+	return nil
+}
+
+func parseForSaleTmp() error {
+	ts, err := template.New(
+		"base.html",
+	).Delims("{|", "|}").ParseFiles(baseTmpPath, forSaleTmpPath)
+	if err != nil {
+		return err
+	}
+	forSaleTmp.Store(ts)
+	tmps.Store("forsale", ts)
+	return nil
+}
+
+/*
+func parseForSaleDetailTmp() error {
+	ts, err := template.New(
+		"base.html",
+	).Delims("{|", "|}").ParseFiles(baseTmpPath, forSaleDetailTmpPath)
+	if err != nil {
+		return err
+	}
+	forSaleTmp.Store(ts)
+	tmps.Store("forsale", ts)
+	return nil
+}
+*/
+
+func parsePoliciesTmp() error {
+	ts, err := template.New(
+		"base.html",
+	).Delims("{|", "|}").ParseFiles(baseTmpPath, policiesTmpPath)
+	if err != nil {
+		return err
+	}
+	policiesTmp.Store(ts)
+	tmps.Store("policies", ts)
+	return nil
+}
+
+func parseAdminTmp() error {
+	ts, err := template.New(
+		"base.html",
+	).Delims("{|", "|}").ParseFiles(adminBaseTmpPath, adminAdminTmpPath)
+	if err != nil {
+		return err
+	}
+	adminAdminTmp.Store(ts)
+	tmps.Store("admin/admin", ts)
+	return nil
+}

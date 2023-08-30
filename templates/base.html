@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+
+<html lang="en-US">
+
+<head>
+  <title>
+    {|block "title" .|}OnlyFrags{|end|}
+  </title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+  {|block "css" .|}{|end|}
+  {|block "js" .|}{|end|}
+
+  <style>
+    ul {
+      list-style-type: none;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background-color: #333;
+    }
+
+    li {
+      float: left;
+    }
+
+    li a {
+      display: block;
+      color: white;
+      text-align: center;
+      padding: 14px 16px;
+      text-decoration: none;
+    }
+
+    li a:hover:not(.active) {
+      background-color: #111;
+    }
+
+    .active {
+      background-color: #04AA6D;
+    }
+  </style>
+</head>
+
+<body style="margin: 0">
+  <div id="navbar">
+    <ul>
+      <li><a href="/home">Home</a></li>
+      <li><a href="/forsale">For Sale</a></li>
+      <li><a href="/policies">Policies</a></li>
+      <li><a href="/about">About</a></li>
+      <!-- <li style="float:right"><a href="/about"></a></li> -->
+    </ul>
+  </div>
+
+
+  {|template "body" .|}
+
+  <script>
+    const navbarLinks = Array.from(
+      document.getElementById("navbar").children[0].children
+    ).reduce((obj, item) => {
+      const link = item.children[0];
+      return {
+        ...obj,
+        [link.pathname.substr(1)]: link,
+      };
+    }, {});
+    let currPathBase = window.location.pathname.split("/")[1] || "";
+    if (currPathBase === "")
+      currPathBase = "home";
+    const currTabLink = navbarLinks[currPathBase];
+    if (currTabLink != undefined)
+      currTabLink.className = "active";
+  </script>
+
+</body>
+
+</html>

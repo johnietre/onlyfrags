@@ -1,0 +1,52 @@
+{|define "title"|}
+OnlyFrags - For Sale
+{|end|}
+
+{|define "js"|}
+<script src="https://unpkg.com/vue@3"></script>
+<script src="/static/js/forsale.js" defer></script>
+{|end|}
+
+{|define "css"|}
+<style>
+  /*
+img {
+  width: 100%;
+  height: 50%;
+}
+*/
+
+  #pics-div {
+    width: 100%;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+  }
+
+  #pics-div img {
+    /*
+  max-width: 100%;
+  max-height: 50vh;
+  */
+    /*
+  width: 50%;
+  height: 50%;
+  width: 50vw;
+  height: 50vh;
+  */
+  }
+</style>
+{|end|}
+
+{|define "body"|}
+<div id="app" width="100%">
+
+  <h1>For Sale</h1>
+
+  <div id="pics-div">
+  </div>
+
+</div>
+{|end|}
