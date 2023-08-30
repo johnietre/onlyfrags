@@ -6,7 +6,7 @@ import (
 	"log"
 	"net/http"
 	"net/smtp"
-  "os"
+	"os"
 	"strconv"
 )
 
@@ -57,10 +57,10 @@ func forsaleFragsHandler(w http.ResponseWriter, r *http.Request) {
 }
 
 var (
-  emailAddr = os.Getenv("EMAIL_ADDR")
-  emailPwd = os.Getenv("EMAIL_PWD")
-  emailSrvr = os.Getenv("EMAIL_SRVR")
-  emailSrvrPort = os.Getenv("EMAIL_SRVR_PORT")
+	emailAddr     = os.Getenv("EMAIL_ADDR")
+	emailPwd      = os.Getenv("EMAIL_PWD")
+	emailSrvr     = os.Getenv("EMAIL_SRVR")
+	emailSrvrPort = os.Getenv("EMAIL_SRVR_PORT")
 )
 var emailAuth = smtp.PlainAuth(
 	"", emailAddr, emailPwd, emailSrvr,
@@ -89,7 +89,7 @@ func forsaleFragsBuyHandler(w http.ResponseWriter, r *http.Request) {
 				fmt.Sprintf("A purchase of $%.2f was made!!!\r\n", frag.Price),
 		)
 	}
-  addr := emailSrvr + ":" + emailSrvrPort
+	addr := emailSrvr + ":" + emailSrvrPort
 	to := "9726793337@txt.att.net"
 	if err := smtp.SendMail(
 		addr, emailAuth, emailAddr,
